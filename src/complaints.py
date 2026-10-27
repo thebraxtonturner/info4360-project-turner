@@ -23,13 +23,15 @@ CATEGORIES = {
     "noise": "noise from the street, other guests, thin walls, construction, or the building",
     "staff": "rude, unhelpful, or slow staff, or poor service from reception or other staff",
     "room_size": "the room or bathroom is small, cramped, or has no space for luggage",
-    "breakfast": "breakfast, restaurant, bar, or other food and drink at the hotel",
-    "value": "price too high for what you get, unexpected charges, or extra fees",
+    "breakfast": "breakfast, restaurant, or other food and drink served at the hotel",
+    "facilities": "hotel facilities missing, closed, or extra cost: bar, pool, gym, spa, minibar, parking, kettle",
+    "value": "price too high for what you get, unexpected charges or extra fees, or not up to the hotel's star rating",
     "maintenance": "broken, worn, or outdated things: shower, plumbing, lift, furniture, decor",
     "temperature": "room too hot or too cold, air conditioning or heating not working",
     "wifi": "Wi-Fi or internet is slow, unreliable, or costs extra",
     "location": "the location or neighbourhood is inconvenient, unsafe, or far from things",
-    "checkin": "problems at check-in or check-out: waiting, room not ready, wrong booking",
+    "checkin": "check-in or check-out problems, or the booking was not honored: waiting, room not ready, "
+               "a different room or bed type than booked",
     "bed_comfort": "uncomfortable bed, mattress, or pillows, or poor sleep because of the bed",
     "other": "a real complaint that fits none of the categories above",
 }
@@ -41,7 +43,8 @@ KEYWORDS = {
     "staff": ["staff", "rude", "reception", "receptionist", "unfriendly", "unhelpful", "service",
               "manager", "attitude"],
     "room_size": ["small", "tiny", "cramped", "size", "space"],
-    "breakfast": ["breakfast", "food", "coffee", "buffet", "restaurant", "bar"],
+    "breakfast": ["breakfast", "food", "coffee", "buffet", "restaurant"],
+    "facilities": ["bar", "pool", "gym", "spa", "minibar", "mini bar", "parking", "kettle", "sauna"],
     "value": ["expensive", "price", "overpriced", "value", "money", "charge", "charged", "pay", "paid", "cost"],
     "maintenance": ["broken", "old", "dated", "repair", "worn", "leak", "leaking", "lift", "elevator",
                     "tired", "renovation", "shower"],
@@ -49,7 +52,7 @@ KEYWORDS = {
                     "temperature", "warm"],
     "wifi": ["wifi", "wi fi", "internet"],
     "location": ["location", "area", "far", "distance", "neighbourhood", "neighborhood"],
-    "checkin": ["check in", "checkin", "check out", "checkout", "waiting", "queue"],
+    "checkin": ["check in", "checkin", "check out", "checkout", "waiting", "queue", "booked", "booking"],
     "bed_comfort": ["bed", "beds", "mattress", "pillow", "pillows", "uncomfortable"],
 }
 
@@ -136,13 +139,18 @@ def label_review(client, text, model=MODEL):
 
 
 def label_with_cache(df, cache_path, text_col="neg_text", id_col="review_id"):
-    """Label each row once; results are appended to a JSONL cache so re-runs cost nothing."""
+    """Label each row once; results are appended to a JSONL cache so re-runs cost nothing.
+
+    Saved labels are reused only if they were made with the current categories and definitions.
+    """
     import anthropic
+    category_list = [[name, meaning] for name, meaning in sorted(CATEGORIES.items())]
     done = {}
     if Path(cache_path).exists():
         for line in open(cache_path, encoding="utf-8"):
             r = json.loads(line)
-            done[r[id_col]] = r
+            if r.get("category_list") == category_list:
+                done[r[id_col]] = r
     todo = df[~df[id_col].isin(done)]
     if len(todo):
         client = get_client()
@@ -156,7 +164,8 @@ def label_with_cache(df, cache_path, text_col="neg_text", id_col="review_id"):
             else:
                 print("gave up on", getattr(row, id_col))
                 continue
-            rec = {id_col: getattr(row, id_col), "complaints": complaints, "cost_usd": cost}
+            rec = {id_col: getattr(row, id_col), "complaints": complaints, "cost_usd": cost,
+                   "category_list": category_list}
             done[rec[id_col]] = rec
             with open(cache_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(rec) + "\n")

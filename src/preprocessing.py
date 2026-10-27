@@ -19,6 +19,9 @@ STOP_WORDS = sorted((set(ENGLISH_STOP_WORDS) - NEGATIONS) | {"did", "didn", "don
 # and staff names (PERSON) are personal information we do not need
 ENTITIES_TO_REMOVE = ("ORG", "PERSON")
 
+# Amenity acronyms guests write in capitals ("AC not working"); spaCy tags them ORG, but they are complaints
+KEEP_ACRONYMS = {"ac", "tv", "wc"}
+
 
 def clean_review(text):
     """Lowercase, keep letters only, collapse spaces. Used as a vectorizer preprocessor."""
@@ -39,7 +42,7 @@ def load_ner():
     return spacy.load("en_core_web_sm", disable=["tagger", "parser", "attribute_ruler", "lemmatizer"])
 
 
-def common_lowercase_words(texts, min_count=20):
+def common_lowercase_words(texts, min_count=5):
     """Words that appear in lowercase at least min_count times in the corpus.
 
     Booking.com strips punctuation, so a capitalized word at the start of a sentence
@@ -54,26 +57,29 @@ def common_lowercase_words(texts, min_count=20):
 
 
 def remove_entities(texts, nlp, common_words=frozenset(), labels=ENTITIES_TO_REMOVE, batch_size=500):
-    """Remove named entities of the given types from each text.
+    """Remove named entities of the given types from each text, word by word.
 
-    A one-word entity that is a common lowercase word is kept (see common_lowercase_words).
-    Returns the cleaned texts and the lists of entities removed and kept, as (text, label),
-    so the notebook can show what was taken out.
+    Inside an entity, a word is kept if it is a common lowercase word (see common_lowercase_words)
+    or an amenity acronym. So "Kensington High Street Bed" loses only "Kensington", and
+    "Breakfast" or "AC" tagged as ORG are kept. Returns the cleaned texts and the lists of
+    words removed and kept, as (word, label), so the notebook can show what was taken out.
     """
     cleaned, removed, kept = [], [], []
     for doc in nlp.pipe(texts, batch_size=batch_size):
-        parts, last = [], 0
+        drop = set()   # token positions to remove
         for ent in doc.ents:
             if ent.label_ not in labels:
                 continue
-            if len(ent) == 1 and ent.text.lower() in common_words:
-                kept.append((ent.text, ent.label_))
-                continue
-            parts.append(doc.text[last:ent.start_char])
-            last = ent.end_char
-            removed.append((ent.text, ent.label_))
-        parts.append(doc.text[last:])
-        cleaned.append(re.sub(r"\s+", " ", " ".join(parts)).strip())
+            for tok in ent:
+                word = tok.text.lower()
+                # Names are capitalized, so a lowercase word inside an entity is an ordinary word
+                if tok.text[0].islower() or word in common_words or word in KEEP_ACRONYMS or not tok.is_alpha:
+                    kept.append((tok.text, ent.label_))
+                else:
+                    drop.add(tok.i)
+                    removed.append((tok.text, ent.label_))
+        words = [tok.text_with_ws for tok in doc if tok.i not in drop]
+        cleaned.append(re.sub(r"\s+", " ", "".join(words)).strip())
     return cleaned, removed, kept
 
 

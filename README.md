@@ -66,7 +66,7 @@ python -m spacy download en_core_web_sm
 jupyter nbconvert --to notebook --execute notebooks/phase2_exploration.ipynb   # or open it and Run All
 ```
 
-The notebook runs from the files in `data/`. The Claude labels are cached, so **no API key is needed to re-run it**. To label new reviews, put `ANTHROPIC_API_KEY=sk-ant-...` in a `.env` file in the repo root. `.gitignore` keeps it out of the repo.
+The notebook runs from the files in `data/`. The Claude labels are cached, so **no API key is needed to re-run it**. To label new reviews, put `ANTHROPIC_API_KEY=sk-ant-...` in a `.env` file in the repo root and call `label_with_cache(..., call_api=True)`. Without that flag it never calls the API. `.gitignore` keeps it out of the repo.
 
 To rebuild the samples from the full dataset:
 

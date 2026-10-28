@@ -8,6 +8,7 @@ The vectorizer then cleans, tokenizes, and drops stop words in one step.
 """
 
 import re
+from collections import Counter
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 
 # Negations carry the meaning of a complaint ("not clean", "no hot water"), so keep them.
@@ -33,7 +34,8 @@ def clean_review(text):
 def remove_hotel_name(text, hotel_name):
     """Remove the reviewed hotel's own name (any case), e.g. 'The Park Grand' in its own review."""
     name = re.sub(r"^(the|hotel)\s+", "", str(hotel_name).strip(), flags=re.IGNORECASE)
-    return re.sub(re.escape(name), " ", str(text), flags=re.IGNORECASE)
+    # \b so a short name like "Cram" or "Omm" doesn't cut into "cramped" or "recommend"
+    return re.sub(r"\b" + re.escape(name) + r"\b", " ", str(text), flags=re.IGNORECASE)
 
 
 def load_ner():
@@ -49,15 +51,12 @@ def common_lowercase_words(texts, min_count=5):
     ("Breakfast was cold", "Pillows too soft") looks like a name to spaCy. A word that guests
     also write in lowercase many times is an ordinary word, not a hotel or a person.
     """
-    counts = {}
-    for text in texts:
-        for word in re.findall(r"\b[a-z]+\b", str(text)):
-            counts[word] = counts.get(word, 0) + 1
+    counts = Counter(word for text in texts for word in re.findall(r"\b[a-z]+\b", str(text)))
     return {w for w, n in counts.items() if n >= min_count}
 
 
-def remove_entities(texts, nlp, common_words=frozenset(), labels=ENTITIES_TO_REMOVE, batch_size=500):
-    """Remove named entities of the given types from each text, word by word.
+def remove_entities(texts, nlp, common_words):
+    """Remove ORG and PERSON entities from each text, word by word.
 
     Inside an entity, a word is kept if it is a common lowercase word (see common_lowercase_words)
     or an amenity acronym. So "Kensington High Street Bed" loses only "Kensington", and
@@ -65,10 +64,10 @@ def remove_entities(texts, nlp, common_words=frozenset(), labels=ENTITIES_TO_REM
     words removed and kept, as (word, label), so the notebook can show what was taken out.
     """
     cleaned, removed, kept = [], [], []
-    for doc in nlp.pipe(texts, batch_size=batch_size):
+    for doc in nlp.pipe(texts, batch_size=500):
         drop = set()   # token positions to remove
         for ent in doc.ents:
-            if ent.label_ not in labels:
+            if ent.label_ not in ENTITIES_TO_REMOVE:
                 continue
             for tok in ent:
                 word = tok.text.lower()

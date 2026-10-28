@@ -64,7 +64,7 @@ def keyword_flags(texts):
     for cat, words in KEYWORDS.items():
         pattern = r"\b(?:" + "|".join(re.escape(w) for w in words) + r")\b"
         flags[cat] = cleaned.str.contains(pattern, regex=True).astype(int)
-    return pd.DataFrame(flags, index=getattr(texts, "index", None))
+    return pd.DataFrame(flags, index=texts.index)
 
 
 # ---------------------------------------------------------------- Claude labeling
@@ -120,16 +120,16 @@ def get_client():
     return anthropic.Anthropic()
 
 
-def label_review(client, text, model=MODEL):
+def label_review(client, text):
     """Label one negative review. Returns (list of {category, evidence}, cost in USD)."""
     response = client.messages.create(
-        model=model,
+        model=MODEL,
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt_label.format(
             categories="\n".join(f"- {k}: {v}" for k, v in CATEGORIES.items()), review=text)}],
         output_config={"effort": EFFORT, "format": {"type": "json_schema", "schema": label_schema}},
     )
-    price_in, price_out = PRICES[model]
+    price_in, price_out = PRICES[MODEL]
     cost = response.usage.input_tokens / 1e6 * price_in + response.usage.output_tokens / 1e6 * price_out
     if response.stop_reason != "end_turn":
         print("Unexpected stop:", response.stop_reason)
@@ -138,12 +138,12 @@ def label_review(client, text, model=MODEL):
     return json.loads(answer)["complaints"], cost
 
 
-def label_with_cache(df, cache_path, text_col="neg_text", id_col="review_id"):
+def label_with_cache(df, cache_path, text_col="neg_text", id_col="review_id", call_api=False):
     """Label each row once; results are appended to a JSONL cache so re-runs cost nothing.
 
     Saved labels are reused only if they were made with the current categories and definitions.
+    The API is only called with call_api=True, so re-running a notebook never costs money by accident.
     """
-    import anthropic
     category_list = [[name, meaning] for name, meaning in sorted(CATEGORIES.items())]
     done = {}
     if Path(cache_path).exists():
@@ -152,7 +152,10 @@ def label_with_cache(df, cache_path, text_col="neg_text", id_col="review_id"):
             if r.get("category_list") == category_list:
                 done[r[id_col]] = r
     todo = df[~df[id_col].isin(done)]
+    if len(todo) and not call_api:
+        raise RuntimeError(f"{len(todo)} reviews are not in the cache. Pass call_api=True to label them (paid API calls).")
     if len(todo):
+        import anthropic
         client = get_client()
         for row in todo.itertuples():
             for attempt in range(4):

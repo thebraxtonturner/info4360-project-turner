@@ -25,7 +25,7 @@ The full file (~238 MB) is too big for GitHub, so the repo has two samples built
 
 | File | Rows | Used for |
 |---|---|---|
-| `data/hotel_reviews_20k.csv` | 19,999, stratified by City x Trip_Type, real share of low scores (17.1%) | Phase 2 exploration and onward |
+| `data/hotel_reviews_20k.csv` | 19,998 (19,999 in the file, minus 1 exact duplicate), stratified by City x Trip_Type, real share of low scores (17.1%) | Phase 2 exploration and onward |
 | `data/hotel_reviews_sample.csv` | 2,000, balanced (1,000 low, 1,000 high) | Phase 1 |
 | `data/claude_sample_labels.jsonl` | 12 | cached Claude labels from the Phase 2 sample prompts |
 

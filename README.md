@@ -74,6 +74,10 @@ To rebuild the samples from the full dataset:
 python scripts/make_sample.py path/to/Hotel_Reviews.csv
 ```
 
+## AI Assistance
+
+I used Claude Code (an AI coding assistant) to help write and debug code for this project.
+
 ## License
 
 MIT, see `LICENSE`.

@@ -43,7 +43,7 @@ See Section 4 of the Phase 2 notebook for the full plan and the reasoning.
 ## Progress
 
 - **Phase 1:** proposal, data sample, README.
-- **Phase 2 (this check-in):** `notebooks/phase2_exploration.ipynb` covers data exploration, text mining (NER noise removal, keyword frequency, word clouds, TF-IDF, a keyword-based first look at complaint categories, VADER sentiment checked against the true score, LDA topics), Claude sample prompts on 12 reviews, and the Phase 3 plan.
+- **Phase 2 (this check-in):** `notebooks/phase2_exploration.ipynb` covers data exploration, text mining (NER noise removal, keyword frequency, word clouds, TF-IDF, a keyword-based first look at complaint categories, VADER sentiment checked against the true score, LDA topics), Claude sample prompts on 12 reviews, and the Phase 3 plan. A data validation step (Section 1.7, `src/validation.py`) runs 15 pass/fail checks on row counts, value ranges, placeholders, the sample vs. the full data, the Claude labels and the API key. All pass.
 - **Phase 3 (next):** Claude batch labeling, regression models, fix list, and the comparison with TF-IDF.
 
 ## Repo Structure
@@ -56,6 +56,7 @@ src/data.py                  load the sample, handle "No Negative" placeholders
 src/preprocessing.py         clean_review (vectorizer preprocessor) and NER noise removal
 src/sentiment.py             VADER scores and why a score is neutral
 src/complaints.py            complaint categories, keyword lexicon, cached Claude labeler
+src/validation.py            run_validation(): pass/fail data checks
 ```
 
 ## How to Run

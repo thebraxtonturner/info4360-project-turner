@@ -13,6 +13,13 @@ NO_CONTENT = {
     "no negative", "no positive", "nothing", "n a", "na", "none", "nil", "nothing really",
     "nothing at all", "no complaints", "all good", "nothing to complain about",
     "nothing to report", "nothing to say", "non", "no", "",
+    # Found by checking the most common short "complaints" in the 20K sample (all score high)
+    "nothing to dislike", "not a thing", "absolutely nothing", "nothing not to like", "nothing in particular",
+    "nothing i didn t like", "nothing we didn t like", "no complaints at all", "nothing comes to mind",
+    "nothing i can think of", "nothing to mention", "nothing of note", "nothing bad to say", "nothing bad to say at all",
+    "none at all", "nothing whatsoever", "no comment", "no comments", "liked everything",
+    "everything was perfect", "everything was good", "everything was fine", "everything was great",
+    "nothing everything was perfect", "nothing everything was great", "nothing it was perfect", "nothing all good",
 }
 
 
@@ -29,6 +36,9 @@ def load_reviews(path=DEFAULT_PATH):
     """Read the sample and add cleaned text columns, flags, and word counts."""
     df = pd.read_csv(path)
     df["review_id"] = range(len(df))   # stable id (row number in the sample file) for caching labels
+    # The full dataset has 526 exact duplicate rows; drop any that made it into the sample
+    # (after review_id, so ids still match the row numbers in the file)
+    df = df[~df.drop(columns="review_id").duplicated()].copy()
     df["Review_Date"] = pd.to_datetime(df["Review_Date"], format="%m/%d/%Y")
     df["Reviewer_Nationality"] = df["Reviewer_Nationality"].str.strip()
 

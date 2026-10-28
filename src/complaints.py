@@ -116,7 +116,8 @@ def get_client():
     from dotenv import load_dotenv
     load_dotenv(REPO_ROOT / ".env")
     if not os.getenv("ANTHROPIC_API_KEY"):
-        raise RuntimeError("No ANTHROPIC_API_KEY. Put ANTHROPIC_API_KEY=your-key-here in a .env file in the repo root.")
+        raise RuntimeError("No ANTHROPIC_API_KEY found. Create a file named .env in the repo root "
+                           "containing one line: ANTHROPIC_API_KEY=sk-ant-...  Then restart the kernel.")
     return anthropic.Anthropic()
 
 

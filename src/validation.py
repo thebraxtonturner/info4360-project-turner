@@ -5,6 +5,7 @@ actual values, and recompute key numbers a second way. Returns a table so a fail
 """
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -84,7 +85,9 @@ def run_validation(df_raw, df_clean, labels_path, full_path=None):
 
     # API key safety
     tracked = subprocess.run(["git", "-C", str(REPO_ROOT), "ls-files"], capture_output=True, text=True).stdout.split()
-    leaked = [f for f in tracked if "sk-ant-api" in (REPO_ROOT / f).read_text(encoding="utf-8", errors="ignore")]
+    # A real key is "sk-" plus a long random part; a set ANTHROPIC_API_KEY= line also counts
+    key_pattern = re.compile(r"\bsk-\w{3}-\w{5}-[\w-]{40,}|ANTHROPIC_API_KEY\s*=\s*['\"]?[\w-]{20,}")
+    leaked = [f for f in tracked if key_pattern.search((REPO_ROOT / f).read_text(encoding="utf-8", errors="ignore"))]
     check("No API key in any tracked file", bool(tracked) and not leaked, f"{len(tracked)} files scanned")
 
     return pd.DataFrame(checks)

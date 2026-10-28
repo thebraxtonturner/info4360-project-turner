@@ -138,11 +138,10 @@ def label_review(client, text):
     return json.loads(answer)["complaints"], cost
 
 
-def label_with_cache(df, cache_path, text_col="neg_text", id_col="review_id", call_api=False):
+def label_with_cache(df, cache_path, text_col="neg_text", id_col="review_id"):
     """Label each row once; results are appended to a JSONL cache so re-runs cost nothing.
 
     Saved labels are reused only if they were made with the current categories and definitions.
-    The API is only called with call_api=True, so re-running a notebook never costs money by accident.
     """
     category_list = [[name, meaning] for name, meaning in sorted(CATEGORIES.items())]
     done = {}
@@ -152,8 +151,6 @@ def label_with_cache(df, cache_path, text_col="neg_text", id_col="review_id", ca
             if r.get("category_list") == category_list:
                 done[r[id_col]] = r
     todo = df[~df[id_col].isin(done)]
-    if len(todo) and not call_api:
-        raise RuntimeError(f"{len(todo)} reviews are not in the cache. Pass call_api=True to label them (paid API calls).")
     if len(todo):
         import anthropic
         client = get_client()

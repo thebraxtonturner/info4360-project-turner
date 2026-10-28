@@ -9,7 +9,7 @@ mirror (Dricz/515k-Hotel-Reviews-In-Europe), then run:
 
 This writes two files:
 - data/hotel_reviews_sample.csv  balanced 2,000 rows (1,000 low, 1,000 high), from Phase 1
-- data/hotel_reviews_20k.csv     20,000 rows stratified by City x Trip_Type, keeping the
+- data/hotel_reviews_20k.csv     about 20,000 rows stratified by City x Trip_Type, keeping the
                                  real share of low scores (used in Phase 2 and later)
 """
 
@@ -84,7 +84,11 @@ def main(path):
         df.groupby(["City", "Trip_Type"], group_keys=False)
         .sample(frac=frac, random_state=RANDOM_STATE)
     )
-    keep_20k = keep[:6] + ["Nights", "Average_Score"] + keep[6:]  # Average_Score kept only for the leakage check
+    keep_20k = [
+        "Hotel_Name", "City", "Review_Date", "Reviewer_Nationality", "Trip_Type", "Tags",
+        "Nights", "Average_Score",   # Average_Score kept only for the leakage check
+        "Negative_Review", "Positive_Review", "Reviewer_Score", "Low_Score",
+    ]
     stratified[keep_20k].to_csv("data/hotel_reviews_20k.csv", index=False)
     print(f"Wrote {len(stratified):,} rows to data/hotel_reviews_20k.csv "
           f"({stratified['Low_Score'].mean():.1%} low scores)")

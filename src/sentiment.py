@@ -30,4 +30,4 @@ def vader_table(texts):
         hits = lexicon_hits(text)
         rows.append({"compound": compound, "lexicon_hits": hits,
                      "neutral_reason": neutral_reason(compound, hits)})
-    return pd.DataFrame(rows, index=getattr(texts, "index", None))
+    return pd.DataFrame(rows, index=texts.index)

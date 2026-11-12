@@ -218,3 +218,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Batch request previews and batch ids (rebuilt by scripts/run_batch.py)
+data/batch/
+
+# Office lock/temp files
+~$*
+*.tmp
+
+# Final presentation: submitted on the course portal, not kept in the repo
+presentation/

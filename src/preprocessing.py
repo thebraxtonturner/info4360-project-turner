@@ -86,3 +86,22 @@ def denoise(df, text_col, nlp, common_words):
     """Hotel name removal + NER removal for one text column of the reviews table."""
     texts = [remove_hotel_name(t, h) for t, h in zip(df[text_col], df["Hotel_Name"])]
     return remove_entities(texts, nlp, common_words)
+
+
+# ---------------------------------------------------------------- Phase 3: top-word fixes (Phase 2 feedback)
+
+# For single-word top lists only: negations say nothing on their own ("no", "not" topped both lists).
+# They stay in STOP_WORDS' complement for bigrams and models, where "not clean" needs the "not".
+TOP_WORD_STOP = sorted(set(STOP_WORDS) | NEGATIONS)
+
+
+def load_lemmatizer():
+    """spaCy with the tagger and lemmatizer (needed for lemmas), without the parser and NER (faster)."""
+    import spacy
+    return spacy.load("en_core_web_sm", disable=["parser", "ner"])
+
+
+def lemmatize(texts, nlp):
+    """Lowercase lemmas joined by spaces, so "rooms" counts as "room" and "beds" as "bed"."""
+    texts = [clean_review(t) for t in texts]
+    return [" ".join(tok.lemma_ for tok in doc if not tok.is_space) for doc in nlp.pipe(texts, batch_size=500)]

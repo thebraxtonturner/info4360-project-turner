@@ -230,3 +230,55 @@ def fold_stability(df, X_controls, flags, base, n_splits=5, seed=4360):
             base.loc[common, "points lost per 100 reviews"], t.loc[common, "points lost per 100 reviews"]).statistic,
             "top 3": ", ".join(t.index[:3])})
     return pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------------- Path A: predict a low score
+
+def classify_low_score(df, X_controls, flags, test_size=0.2, seed=4360):
+    """Predict Low_Score (below 7) on a held-out 20% test set, stratified so both sets keep the 17% share.
+
+    Compares a majority-class baseline, controls only, controls + categories (plain and with balanced
+    class weights) and controls + TF-IDF words. Returns the score table (train and test side by side),
+    the test confusion matrix of the categories model, and that model's coefficients.
+    """
+    from sklearn.dummy import DummyClassifier
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, precision_score, recall_score
+    from sklearn.model_selection import train_test_split
+
+    y = df.Low_Score.astype(int)
+    tr, te = train_test_split(df.index, test_size=test_size, stratify=y, random_state=seed)
+    Xc = X_controls.astype(float)
+    Xf = pd.concat([Xc, flags], axis=1).astype(float)
+    words_tr, words_te, _ = tfidf_features(df.loc[tr], df.loc[te])
+    Xw_tr = sparse.hstack([sparse.csr_matrix(Xc.loc[tr].to_numpy()), words_tr]).tocsr()
+    Xw_te = sparse.hstack([sparse.csr_matrix(Xc.loc[te].to_numpy()), words_te]).tocsr()
+
+    logit = lambda **kw: LogisticRegression(max_iter=3000, **kw)
+    models = [
+        ("Majority class (always 'not low')", DummyClassifier(strategy="most_frequent"), Xc.loc[tr], Xc.loc[te]),
+        ("Controls only", logit(), Xc.loc[tr], Xc.loc[te]),
+        ("Controls + categories", logit(), Xf.loc[tr], Xf.loc[te]),
+        ("Controls + categories, balanced weights", logit(class_weight="balanced"), Xf.loc[tr], Xf.loc[te]),
+        ("Controls + TF-IDF words", logit(), Xw_tr, Xw_te),
+    ]
+    rows, fitted = [], {}
+    for name, model, Xtr, Xte in models:
+        model.fit(Xtr, y.loc[tr])
+        row = {"model": name}
+        for part, X, yy in (("train", Xtr, y.loc[tr]), ("test", Xte, y.loc[te])):
+            p = model.predict(X)
+            row[f"{part} accuracy"] = accuracy_score(yy, p)
+            row[f"{part} F1"] = f1_score(yy, p, zero_division=0)
+            if part == "test":
+                row["test precision"] = precision_score(yy, p, zero_division=0)
+                row["test recall"] = recall_score(yy, p, zero_division=0)
+        rows.append(row)
+        fitted[name] = (model, Xte)
+    table = pd.DataFrame(rows).set_index("model")
+    model, Xte = fitted["Controls + categories"]
+    cm = pd.DataFrame(confusion_matrix(y.loc[te], model.predict(Xte)),
+                      index=["actual: not low", "actual: low"], columns=["predicted: not low", "predicted: low"])
+    coefs = pd.Series(model.coef_[0], index=Xf.columns)
+    coefs = coefs[[c for c in coefs.index if c.startswith(("c_", "p_"))]].sort_values()
+    return table, cm, coefs

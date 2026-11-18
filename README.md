@@ -1,12 +1,33 @@
 # What Drives Low Hotel Review Scores?
 
-INFO 4360 Complex Data Analytics, course project (Braxton Turner, Fall 2026)
+INFO 4360 Complex Data Analytics, course project, Fall 2026
+
+**Team:** Braxton Turner (solo project)
 
 ## Problem
 
 A hotel group's guest experience manager sees thousands of guest reviews each month across its properties. A drop in review scores pushes hotels down in booking-site search results and costs bookings, but no one can read every review to figure out which problems are actually behind the bad scores.
 
 This project finds which complaints cost the most review points (for example noise, cleanliness, staff attitude, room size or breakfast), and whether that differs by city or trip type (business vs. leisure). The goal is a ranked, actionable fix list for the manager: how many points each complaint costs, times how often it occurs.
+
+## Main Results
+
+From `notebooks/phase3_analysis.ipynb` (19,998 reviews, every review labeled by Claude):
+
+- **The fix list.** Staff (11.0 points lost per 100 reviews), maintenance (9.3), value (8.4), room size (8.1) and cleanliness (7.8) cost the most: 61% of all review points lost to complaints.
+- **Common is not the same as costly.** Breakfast complaints are as common as staff complaints but cost 0.17 points each vs. 1.05.
+- **Business vs. leisure.** Same top problems, but business guests punish maintenance, value, Wi-Fi and temperature harder. Vienna is the one city with a different order (value first).
+- **Categories vs. words.** 27 named categories capture 95% of what about 2,900 TF-IDF words explain (out-of-sample R² 0.472 vs. 0.494). As a low-score classifier, the categories reach 87.2% test accuracy (F1 0.54) vs. an 82.9% majority baseline, with no overfitting.
+- **Label quality.** Against a blind hand check of 100 reviews, Claude's precision is 64% overall and 74 to 90% for the top complaints. Facilities (22%) and check-in (31%) are unreliable and flagged.
+
+## API Costs
+
+| Run | Requests | Cost |
+|---|---|---|
+| Phase 2 sample prompts | 12 | under $0.01 |
+| Phase 3 test batch | 184 | $0.015 |
+| Phase 3 full batch + 8 retries | 32,106 + 8 | $2.47 |
+| **Total Phase 3** | **32,290** | **$2.48** (35.7M input + 2.8M output tokens, Claude Haiku 5.5, Batch API at half price) |
 
 ## Data
 
@@ -46,14 +67,14 @@ See Section 4 of the Phase 2 notebook for the full plan and the reasoning.
 ## Progress
 
 - Phase 1: proposal, data sample, README.
-- Phase 2 (this check-in): `notebooks/phase2_exploration.ipynb` covers data exploration, text mining (NER noise removal, keyword frequency, word clouds, TF-IDF, a keyword-based first look at complaint categories, VADER sentiment checked against the true score, LDA topics), Claude sample prompts on 12 reviews, and the Phase 3 plan. A data validation step (Section 1.7, `src/validation.py`) runs 15 pass/fail checks on row counts, value ranges, placeholders, the sample vs. the full data, the Claude labels and the API key. All pass.
-- Phase 3: `notebooks/phase3_analysis.ipynb` applies the Phase 2 feedback (top words without negations, lemmas, counts vs. TF-IDF), labels all reviews with Claude through the Batch API, checks the labels (validation, evidence quotes, a repeat-request consistency test, keyword agreement, a blind hand check), compares models M0 to M3 with 5-fold cross-validation, and builds the fix list, with business vs. leisure, city and robustness checks.
+- Phase 2: `notebooks/phase2_exploration.ipynb` covers data exploration, text mining (NER noise removal, keyword frequency, word clouds, TF-IDF, a keyword-based first look at complaint categories, VADER sentiment checked against the true score, LDA topics), Claude sample prompts on 12 reviews, and the Phase 3 plan. A data validation step (Section 1.7, `src/validation.py`) runs 15 pass/fail checks on row counts, value ranges, placeholders, the sample vs. the full data, the Claude labels and the API key. All pass.
+- Phase 3 (final): `notebooks/phase3_analysis.ipynb` applies the Phase 2 feedback (top words without negations, lemmas, counts vs. TF-IDF), labels all reviews with Claude through the Batch API, checks the labels (validation, evidence quotes, a repeat-request consistency test, keyword agreement, a blind hand check), compares models M0 to M3 with 5-fold cross-validation, predicts low scores against a majority baseline, and builds the fix list, with business vs. leisure, city and robustness checks. It ends with key findings, ethical and privacy considerations, and an AI usage log.
 
 ## Repo Structure
 
 ```
 data/                        samples (full dataset kept outside the repo) and cached Claude labels
-notebooks/phase2_exploration.ipynb   Phase 2: exploration, text mining, Phase 3 plan
+notebooks/phase2_exploration.ipynb   Phase 2: exploration, text mining, Phase 3 plan (+ .html export)
 notebooks/phase3_analysis.ipynb      Phase 3: labels, label checks, models, fix list
 scripts/make_sample.py       builds the samples from the full dataset
 scripts/run_batch.py         the only code that calls the API: test batch, full batch, fetch results
@@ -70,19 +91,50 @@ src/models.py                controls, M0-M3 comparison, fix list, segments, rob
 
 ## How to Run
 
-```bash
-pip install -r requirements.txt
-python -m spacy download en_core_web_sm
-jupyter nbconvert --to notebook --execute notebooks/phase2_exploration.ipynb   # or open it and Run All
-```
+1. **Clone the repo and move into it**
 
-The notebook runs from the files in `data/`. The Claude labels are cached, so no API key is needed to re-run it. To label new reviews, put `ANTHROPIC_API_KEY=sk-ant-...` in a `.env` file in the repo root; only reviews that aren't in the cache are sent to the API. `.gitignore` keeps it out of the repo.
+   ```bash
+   git clone https://github.com/thebraxtonturner/info4360-project-turner.git
+   cd info4360-project-turner
+   ```
 
-To rebuild the samples from the full dataset:
+2. **Create a virtual environment and install the packages**
 
-```bash
-python scripts/make_sample.py path/to/Hotel_Reviews.csv
-```
+   ```bash
+   python -m venv .venv
+   .venv\Scripts\activate        # Mac: source .venv/bin/activate
+   pip install -r requirements.txt
+   python -m spacy download en_core_web_sm
+   ```
+
+3. **Add your API key** (only needed to label new reviews; skip it to reproduce the results)
+
+   Create a file named `.env` in the project folder containing one line:
+
+   ```
+   ANTHROPIC_API_KEY=your-key-here
+   ```
+
+   `.env` is listed in `.gitignore`, so it is never committed.
+
+4. **Get the data**
+
+   Nothing to download to reproduce the results: the 19,998-review sample (`data/hotel_reviews_20k.csv`), the cleaned text and all Claude labels (`data/labels_final.jsonl`) are in the repo. To rebuild the samples from scratch, download `Hotel_Reviews.csv` from [Kaggle](https://www.kaggle.com/datasets/jiashenliu/515k-hotel-reviews-data-in-europe) (about 238 MB, too big for GitHub) and run:
+
+   ```bash
+   python scripts/make_sample.py path/to/Hotel_Reviews.csv
+   ```
+
+5. **Run the notebooks**
+
+   Open `notebooks/phase3_analysis.ipynb` (the final report) and choose **Run All**, or run it from the command line:
+
+   ```bash
+   cd notebooks
+   jupyter nbconvert --to notebook --execute --inplace phase3_analysis.ipynb
+   ```
+
+   It takes about 10 minutes on a laptop (the TF-IDF cross-validation is the slow part). The notebook never calls the API: it reads the saved labels, so it costs nothing to run. `phase2_exploration.ipynb` (exploration and text mining) runs the same way. HTML exports of both are in `notebooks/`.
 
 ## Final labeling run
 
@@ -105,7 +157,7 @@ A request with a saved result is never built again, and a batch name can only be
 
 ## AI Assistance
 
-I used Claude Code (an AI coding assistant) to help write and debug code for this project.
+I used Claude Code (an AI coding assistant) to help write and debug code for this project, and Claude Haiku 5.5 to label the reviews. The AI usage log at the end of `notebooks/phase3_analysis.ipynb` (Section 10) lists each use, how I verified it, and where Claude got something wrong.
 
 ## License
 

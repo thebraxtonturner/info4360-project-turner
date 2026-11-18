@@ -13,6 +13,7 @@ Claude's labels inflates recall, so recall is computed on the random part only; 
 
 import numpy as np
 import pandas as pd
+from sklearn.metrics import cohen_kappa_score
 
 from src.batch_labels import COMPLAINTS, label_flags
 
@@ -90,6 +91,12 @@ def score_sheet(path, records, df):
         "precision (all labels)": tp / claude.to_numpy().sum(),
         "recall (random part)": ((me == 1) & (claude == 1))[random_part].to_numpy().sum() / me[random_part].to_numpy().sum(),
         "reviews where every category matches": (me == claude).all(axis=1).mean(),
+        # Agreement rate on the randomly picked reviews: every review x category yes/no decision
+        "random reviews": int(random_part.sum()),
+        "agreement on yes/no decisions (random part)": (me[random_part] == claude[random_part]).to_numpy().mean(),
+        "Cohen's kappa (random part)": cohen_kappa_score(me[random_part].to_numpy().ravel(),
+                                                         claude[random_part].to_numpy().ravel()),
+        "every category matches (random part)": (me[random_part] == claude[random_part]).all(axis=1).mean(),
     }
 
     evid = {(r["review_id"], lab["category"]): lab["evidence"] for r in records
